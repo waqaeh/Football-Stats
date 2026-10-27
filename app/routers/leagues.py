@@ -1,0 +1,44 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import League, Team
+from app.schemas.league import LeagueCreate, LeagueRead
+from app.schemas.team import TeamRead
+
+router = APIRouter(prefix="/leagues", tags=["leagues"])
+
+
+@router.post("", response_model=LeagueRead, status_code=201)
+def create_league(league_in: LeagueCreate, db: Session = Depends(get_db)):
+    league = League(**league_in.model_dump())
+    db.add(league)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="League already exists")
+    db.refresh(league)
+    return league
+
+
+@router.get("", response_model=list[LeagueRead])
+def list_leagues(db: Session = Depends(get_db)):
+    return db.scalars(select(League)).all()
+
+
+@router.get("/{league_id}", response_model=LeagueRead)
+def get_league(league_id: int, db: Session = Depends(get_db)):
+    league = db.get(League, league_id)
+    if league is None:
+        raise HTTPException(status_code=404, detail="League not found")
+    return league
+
+
+@router.get("/{league_id}/teams", response_model=list[TeamRead])
+def list_league_teams(league_id: int, db: Session = Depends(get_db)):
+    if db.get(League, league_id) is None:
+        raise HTTPException(status_code=404, detail="League not found")
+    return db.scalars(select(Team).where(Team.league_id == league_id)).all()
