@@ -3,11 +3,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.routers import leagues, teams
+from app.routers import leagues, players, teams
 
 app = FastAPI(title="Football Stats API")
 app.include_router(leagues.router)
 app.include_router(teams.router)
+app.include_router(players.router)
 
 
 @app.get("/health")

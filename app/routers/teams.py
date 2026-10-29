@@ -4,7 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import League, Team
+from app.models import League, Player, Team
+from app.schemas.player import PlayerRead
 from app.schemas.team import TeamCreate, TeamRead
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -36,3 +37,10 @@ def get_team(team_id: int, db: Session = Depends(get_db)):
     if team is None:
         raise HTTPException(status_code=404, detail="Team not found")
     return team
+
+
+@router.get("/{team_id}/players", response_model=list[PlayerRead])
+def list_team_players(team_id: int, db: Session = Depends(get_db)):
+    if db.get(Team, team_id) is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return db.scalars(select(Player).where(Player.team_id == team_id)).all()
