@@ -20,6 +20,19 @@ def create_player(player_in: PlayerCreate, db: Session = Depends(get_db)):
     return player
 
 
+@router.post("/bulk", response_model=list[PlayerRead], status_code=201)
+def create_players(players_in: list[PlayerCreate], db: Session = Depends(get_db)):
+    for team_id in {p.team_id for p in players_in}:
+        if db.get(Team, team_id) is None:
+            raise HTTPException(status_code=404, detail=f"Team {team_id} not found")
+    players = [Player(**p.model_dump()) for p in players_in]
+    db.add_all(players)
+    db.commit()
+    for player in players:
+        db.refresh(player)
+    return players
+
+
 @router.get("", response_model=list[PlayerRead])
 def list_players(db: Session = Depends(get_db)):
     return db.scalars(select(Player)).all()
