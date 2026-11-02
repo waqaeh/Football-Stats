@@ -1,0 +1,25 @@
+name: Sync football data
+
+# Keeps the deployed database up to date. Needs two repository secrets:
+# DATABASE_URL (the Neon connection string) and FOOTBALL_DATA_API_KEY.
+on:
+  schedule:
+    - cron: "*/30 * * * *"  # every 30 minutes (GitHub may run it a few minutes late)
+  workflow_dispatch:  # adds a "Run workflow" button in the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Sync Premier League, La Liga and Champions League
+        if: env.DATABASE_URL != ''
+        run: python -m app.sync PL PD CL

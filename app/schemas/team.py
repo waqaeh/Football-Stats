@@ -15,4 +15,5 @@ class TeamRead(BaseModel):
     name: str
     short_name: str
     stadium: str | None
+    crest_url: str | None = None
     league_id: int

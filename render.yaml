@@ -1,0 +1,14 @@
+# Render Blueprint: New > Blueprint in the Render dashboard, then pick this repo.
+services:
+  - type: web
+    name: matchday
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # paste your Neon connection string when Render asks
+      - key: JWT_SECRET
+        generateValue: true  # Render makes a long random secret
+      - key: LLM_PROVIDER
+        value: none  # free servers can't run a language model, so Ask the Rules shows the matching passages

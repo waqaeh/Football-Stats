@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Matchday</title>
+  <meta name="description" content="League tables, fixtures, Champions League brackets, a knockout predictor and a Laws of the Game assistant.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#tables">Matchday</a>
+      <nav class="tabs" aria-label="Sections">
+        <a href="#tables" data-tab="tables">Tables</a>
+        <a href="#fixtures" data-tab="fixtures">Fixtures</a>
+        <a href="#bracket" data-tab="bracket">Champions League</a>
+        <a href="#predictor" data-tab="predictor">Predictor</a>
+        <a href="#rules" data-tab="rules">Ask the Rules</a>
+      </nav>
+      <div class="account" id="account"></div>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-tables" class="view" hidden>
+      <div class="hero">
+        <h1>Tables</h1>
+        <p class="subtitle">Calculated live from every finished match.</p>
+      </div>
+      <div class="controls">
+        <div class="segmented" id="tables-leagues" role="tablist"></div>
+        <select id="tables-season" aria-label="Season"></select>
+      </div>
+      <div class="card table-card" id="tables-body"></div>
+      <div class="legend" id="tables-legend"></div>
+    </section>
+
+    <section id="view-fixtures" class="view" hidden>
+      <div class="hero">
+        <h1>Fixtures</h1>
+        <p class="subtitle">Upcoming matches and the latest results.</p>
+      </div>
+      <div class="controls">
+        <div class="segmented" id="fixtures-leagues" role="tablist"></div>
+        <div class="segmented small" id="fixtures-mode" role="tablist">
+          <button data-mode="upcoming" class="active">Upcoming</button>
+          <button data-mode="results">Results</button>
+        </div>
+      </div>
+      <div id="fixtures-body"></div>
+    </section>
+
+    <section id="view-bracket" class="view" hidden>
+      <div class="hero">
+        <h1>Champions League</h1>
+        <p class="subtitle" id="bracket-subtitle">The knockout bracket, from the play-offs to the final.</p>
+      </div>
+      <div class="controls">
+        <select id="bracket-season" aria-label="Season"></select>
+        <div class="segmented small" id="bracket-mode" role="tablist">
+          <button data-mode="real" class="active">Bracket</button>
+          <button data-mode="projected">If it ended today</button>
+        </div>
+      </div>
+      <div class="bracket-scroll"><div class="bracket" id="bracket-body"></div></div>
+    </section>
+
+    <section id="view-predictor" class="view" hidden>
+      <div class="hero">
+        <h1>Predictor</h1>
+        <p class="subtitle">Pick the winner of every knockout tie before it kicks off. Later rounds are worth more.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card pad" id="predictor-body"></div>
+        <div class="card pad">
+          <h2>Leaderboard</h2>
+          <div id="leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-rules" class="view" hidden>
+      <div class="hero">
+        <h1>Ask the Rules</h1>
+        <p class="subtitle">Answers from the IFAB Laws of the Game 2026/27, with the Law and page they come from.</p>
+      </div>
+      <form class="ask" id="ask-form">
+        <input id="ask-input" type="text" autocomplete="off" maxlength="500"
+               placeholder="What is the ruling on denying an obvious goal-scoring opportunity?">
+        <button type="submit" class="primary">Ask</button>
+      </form>
+      <div class="chips" id="ask-examples"></div>
+      <div id="ask-result"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Data from football-data.org · Laws of the Game © The IFAB · <a href="/docs">API docs</a>
+  </footer>
+
+  <dialog id="auth-dialog">
+    <form method="dialog" id="auth-form" class="auth">
+      <h2 id="auth-title">Sign in</h2>
+      <label>Username <input name="username" required minlength="3" maxlength="30" autocomplete="username"></label>
+      <label>Password <input name="password" type="password" required minlength="8" maxlength="72" autocomplete="current-password"></label>
+      <p class="error" id="auth-error" hidden></p>
+      <button class="primary" type="submit" id="auth-submit">Sign in</button>
+      <button type="button" class="link" id="auth-switch">New here? Create an account</button>
+      <button type="button" class="close" id="auth-close" aria-label="Close">×</button>
+    </form>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

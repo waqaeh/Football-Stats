@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -15,6 +15,8 @@ def engine():
     if not settings.test_database_url:
         pytest.exit("TEST_DATABASE_URL is not set (see .env.example)")
     engine = create_engine(settings.test_database_url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     yield engine

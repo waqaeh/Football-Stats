@@ -93,7 +93,8 @@ def sync_teams(code: str, client: FootballDataClient, db: Session, league: Leagu
                year: int, include_squads: bool = True) -> None:
     for team_data in client.get(f"/competitions/{code}/teams", season=year)["teams"]:
         team = upsert(db, Team, team_data["id"], report,
-                      name=team_data["shortName"], short_name=team_data["tla"], stadium=team_data["venue"])
+                      name=team_data["shortName"], short_name=team_data["tla"], stadium=team_data["venue"],
+                      crest_url=team_data.get("crest"))
         if team.league_id is None:
             # Only set on creation, so syncing the Champions League later won't move Arsenal out of the PL.
             team.league_id = league.id
