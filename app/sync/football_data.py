@@ -3,9 +3,9 @@
 Every row is matched on external_id, so running a sync again updates rows instead of duplicating them.
 """
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import League, Match, MatchStatus, Player, Season, Team
@@ -60,7 +60,8 @@ def season_name(start: date, end: date) -> str:
     return f"{start.year}/{str(end.year)[2:]}"  # e.g. "2026/27"
 
 
-def sync_competition(code: str, client: FootballDataClient, db: Session) -> SyncReport:
+def sync_competition(code: str, client: FootballDataClient, db: Session, include_teams: bool = True) -> SyncReport:
+    """Sync one competition. include_teams=False skips teams and squads (the slow part) to just refresh results."""
     report = SyncReport()
 
     data = client.get(f"/competitions/{code}")
@@ -73,7 +74,15 @@ def sync_competition(code: str, client: FootballDataClient, db: Session) -> Sync
                     league_id=league.id, name=season_name(start, end), start_date=start, end_date=end)
     db.flush()
 
-    teams_by_external_id = {}
+    if include_teams:
+        sync_teams(code, client, db, league, report)
+    sync_matches(code, client, db, league, season, report)
+
+    db.commit()
+    return report
+
+
+def sync_teams(code: str, client: FootballDataClient, db: Session, league: League, report: SyncReport) -> None:
     for team_data in client.get(f"/competitions/{code}/teams")["teams"]:
         team = upsert(db, Team, team_data["id"], report,
                       name=team_data["shortName"], short_name=team_data["tla"], stadium=team_data["venue"])
@@ -81,7 +90,6 @@ def sync_competition(code: str, client: FootballDataClient, db: Session) -> Sync
             # Only set on creation, so syncing the Champions League later won't move Arsenal out of the PL.
             team.league_id = league.id
         db.flush()
-        teams_by_external_id[team_data["id"]] = team
 
         for player_data in team_data["squad"]:
             upsert(db, Player, player_data["id"], report,
@@ -90,17 +98,44 @@ def sync_competition(code: str, client: FootballDataClient, db: Session) -> Sync
                    nationality=player_data["nationality"],
                    team_id=team.id)
 
-    for match_data in client.get(f"/competitions/{code}/matches", season=start.year)["matches"]:
+
+def sync_matches(code: str, client: FootballDataClient, db: Session, league: League, season: Season,
+                 report: SyncReport) -> None:
+    team_ids = dict(db.execute(select(Team.external_id, Team.id).where(Team.external_id.is_not(None))).all())
+
+    for match_data in client.get(f"/competitions/{code}/matches", season=season.start_date.year)["matches"]:
+        home_id = team_ids.get(match_data["homeTeam"]["id"])
+        away_id = team_ids.get(match_data["awayTeam"]["id"])
+        if home_id is None or away_id is None:
+            continue  # e.g. a knockout tie whose teams aren't decided yet ("TBD")
+
         full_time = match_data["score"]["fullTime"]
         upsert(db, Match, match_data["id"], report,
                league_id=league.id,
                season_id=season.id,
-               home_team_id=teams_by_external_id[match_data["homeTeam"]["id"]].id,
-               away_team_id=teams_by_external_id[match_data["awayTeam"]["id"]].id,
+               home_team_id=home_id,
+               away_team_id=away_id,
                kickoff=parse_utc(match_data["utcDate"]),
                status=STATUSES.get(match_data["status"], MatchStatus.SCHEDULED),
                home_score=full_time["home"] or 0,
                away_score=full_time["away"] or 0)
 
-    db.commit()
-    return report
+
+def seconds_until_next_sync(db: Session, now: datetime) -> int:
+    """Sync every minute while matches are being played, otherwise wait until the next kickoff (at most 15 minutes)."""
+    playing = db.scalar(
+        select(Match.id).where(
+            Match.status.in_([MatchStatus.LIVE, MatchStatus.SCHEDULED]),
+            Match.kickoff <= now,
+            Match.kickoff > now - timedelta(hours=3),
+        ).limit(1)
+    )
+    if playing is not None:
+        return 60
+
+    next_kickoff = db.scalar(
+        select(func.min(Match.kickoff)).where(Match.status == MatchStatus.SCHEDULED, Match.kickoff > now)
+    )
+    if next_kickoff is None:
+        return 15 * 60
+    return int(min(max((next_kickoff - now).total_seconds(), 60), 15 * 60))

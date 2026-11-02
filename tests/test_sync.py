@@ -1,5 +1,5 @@
 import copy
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.models import League, Match, MatchStatus, Player, Season, Team
 from app.sync.client import FootballDataClient
-from app.sync.football_data import season_name, sync_competition
+from app.sync.football_data import season_name, seconds_until_next_sync, sync_competition
 
 COMPETITION = {
     "id": 2021, "name": "Premier League", "area": {"name": "England"},
@@ -136,3 +136,45 @@ def test_client_waits_when_rate_limited():
 def test_season_names():
     assert season_name(date(2026, 8, 21), date(2027, 5, 30)) == "2026/27"
     assert season_name(date(2026, 4, 1), date(2026, 12, 5)) == "2026"
+
+
+def test_matches_with_undecided_teams_are_skipped(db, fake_api):
+    fake_api.responses["/v4/competitions/PL/matches"]["matches"].append(
+        {"id": 3, "utcDate": "2027-03-01T20:00:00Z", "status": "TIMED",
+         "homeTeam": {"id": None}, "awayTeam": {"id": None}, "score": {"fullTime": {"home": None, "away": None}}}
+    )
+
+    sync_competition("PL", fake_api.client(), db)
+
+    assert count(db, Match) == 2
+
+
+def test_results_only_sync_skips_teams(db, fake_api):
+    sync_competition("PL", fake_api.client(), db)
+    del fake_api.responses["/v4/competitions/PL/teams"]  # would crash if it were requested
+
+    report = sync_competition("PL", fake_api.client(), db, include_teams=False)
+
+    assert "Team" not in report.updated
+    assert report.updated["Match"] == 2
+
+
+NOW = datetime(2026, 11, 1, 15, 0, tzinfo=timezone.utc)
+
+
+def test_sync_every_minute_while_a_match_is_on(make_match, setup, db):
+    match = make_match(setup["league"]["id"], setup["arsenal"]["id"], setup["liverpool"]["id"])
+    db.get(Match, match["id"]).kickoff = NOW - timedelta(minutes=30)
+
+    assert seconds_until_next_sync(db, NOW) == 60
+
+
+def test_wait_until_next_kickoff_when_nothing_is_on(make_match, setup, db):
+    match = make_match(setup["league"]["id"], setup["arsenal"]["id"], setup["liverpool"]["id"])
+    db.get(Match, match["id"]).kickoff = NOW + timedelta(minutes=5)
+
+    assert seconds_until_next_sync(db, NOW) == 5 * 60
+
+
+def test_wait_at_most_15_minutes(db):
+    assert seconds_until_next_sync(db, NOW) == 15 * 60

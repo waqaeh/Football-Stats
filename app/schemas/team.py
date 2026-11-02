@@ -14,5 +14,5 @@ class TeamRead(BaseModel):
     id: int
     name: str
     short_name: str
-    stadium: str
+    stadium: str | None
     league_id: int
