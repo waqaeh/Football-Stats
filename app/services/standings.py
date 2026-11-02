@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Match, MatchStatus, Team
+from app.models import KNOCKOUT_ROUNDS, Match, MatchStatus, Team
 
 POINTS_FOR_WIN = 3
 POINTS_FOR_DRAW = 1
@@ -41,18 +41,22 @@ class TeamRecord:
 
 
 def compute_standings(league_id: int, season_id: int | None, db: Session) -> list[TeamRecord]:
-    teams = db.scalars(select(Team).where(Team.league_id == league_id)).all()
+    league_matches = select(Match).where(
+        Match.season_id == season_id,
+        or_(Match.stage.is_(None), Match.stage.not_in(KNOCKOUT_ROUNDS)),  # knockout games aren't in the table
+    )
+    matches = db.scalars(league_matches).all()
+
+    # The table lists the teams with fixtures this season, or the league's teams before any are added.
+    team_ids = {m.home_team_id for m in matches} | {m.away_team_id for m in matches}
+    team_filter = Team.id.in_(team_ids) if team_ids else Team.league_id == league_id
+    teams = db.scalars(select(Team).where(team_filter))
     records = {team.id: TeamRecord(team_id=team.id, team_name=team.name) for team in teams}
 
-    finished = db.scalars(
-        select(Match).where(Match.season_id == season_id, Match.status == MatchStatus.FINISHED)
-    ).all()
-    for match in finished:
-        for team_id in (match.home_team_id, match.away_team_id):
-            if team_id not in records:  # a guest team from another league
-                records[team_id] = TeamRecord(team_id=team_id, team_name=db.get(Team, team_id).name)
-        records[match.home_team_id].add_result(match.home_score, match.away_score)
-        records[match.away_team_id].add_result(match.away_score, match.home_score)
+    for match in matches:
+        if match.status == MatchStatus.FINISHED:
+            records[match.home_team_id].add_result(match.home_score, match.away_score)
+            records[match.away_team_id].add_result(match.away_score, match.home_score)
 
     # Premier League tie-breakers: points, then goal difference, then goals scored.
     return sorted(
