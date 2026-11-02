@@ -23,3 +23,13 @@ Tests use a separate database so they never touch your data. Create it once:
 docker compose exec db createdb -U football football_stats_test
 pytest
 ```
+
+## Syncing real data
+
+Data comes from [football-data.org](https://www.football-data.org). Put your free API key in `.env` as `FOOTBALL_DATA_API_KEY`, then:
+
+```bash
+python -m app.sync PL     # Premier League. Also: CL, PD (La Liga), BL1, SA, FL1, ...
+```
+
+Running it again updates existing rows instead of duplicating them.
