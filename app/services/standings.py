@@ -40,12 +40,12 @@ class TeamRecord:
             self.lost += 1
 
 
-def compute_standings(league_id: int, db: Session) -> list[TeamRecord]:
+def compute_standings(league_id: int, season_id: int | None, db: Session) -> list[TeamRecord]:
     teams = db.scalars(select(Team).where(Team.league_id == league_id)).all()
     records = {team.id: TeamRecord(team_id=team.id, team_name=team.name) for team in teams}
 
     finished = db.scalars(
-        select(Match).where(Match.league_id == league_id, Match.status == MatchStatus.FINISHED)
+        select(Match).where(Match.season_id == season_id, Match.status == MatchStatus.FINISHED)
     ).all()
     for match in finished:
         for team_id in (match.home_team_id, match.away_team_id):

@@ -34,3 +34,38 @@ def test_list_leagues(client, make_league):
 
 def test_get_unknown_league_returns_404(client):
     assert client.get("/leagues/999").status_code == 404
+
+
+def test_create_season(client, make_league):
+    league = make_league()
+
+    response = client.post(
+        f"/leagues/{league['id']}/seasons",
+        json={"name": "2026/27", "start_date": "2026-08-01", "end_date": "2027-05-31"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["league_id"] == league["id"]
+
+
+def test_duplicate_season_is_rejected(client, make_league, make_season):
+    league = make_league()
+    make_season(league["id"])
+
+    response = client.post(
+        f"/leagues/{league['id']}/seasons",
+        json={"name": "2026/27", "start_date": "2026-08-01", "end_date": "2027-05-31"},
+    )
+
+    assert response.status_code == 409
+
+
+def test_season_must_end_after_it_starts(client, make_league):
+    league = make_league()
+
+    response = client.post(
+        f"/leagues/{league['id']}/seasons",
+        json={"name": "2026/27", "start_date": "2027-05-31", "end_date": "2026-08-01"},
+    )
+
+    assert response.status_code == 422

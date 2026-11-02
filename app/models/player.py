@@ -9,7 +9,9 @@ class Player(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=False)
-    shirt_number: Mapped[int] = mapped_column()
+    shirt_number: Mapped[int | None]
     nationality: Mapped[str] = mapped_column(String(100))
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
-    position: Mapped[str] = mapped_column(String(2))
+    position: Mapped[str | None] = mapped_column(String(2))
+    # ID from football-data.org, used by the sync job. Empty for data added by hand.
+    external_id: Mapped[int | None] = mapped_column(unique=True)

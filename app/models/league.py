@@ -10,3 +10,5 @@ class League(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
     country: Mapped[str] = mapped_column(String(100))
+    # ID from football-data.org, used by the sync job. Empty for data added by hand.
+    external_id: Mapped[int | None] = mapped_column(unique=True)

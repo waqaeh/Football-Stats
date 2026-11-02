@@ -3,7 +3,7 @@ from typing import Literal
 
 class PlayerCreate(BaseModel):
     name : str
-    shirt_number: int = Field(ge = 1, le= 99)
+    shirt_number: int | None = Field(default=None, ge=1, le=99)
     position: Literal["GK", "DF", "MF", "FW"]
     nationality: str
     team_id: int
@@ -13,8 +13,8 @@ class PlayerRead(BaseModel):
 
     id: int
     name : str
-    shirt_number: int
-    position: str
+    shirt_number: int | None
+    position: str | None
     nationality: str
     team_id: int
 

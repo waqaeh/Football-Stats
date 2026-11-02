@@ -64,3 +64,27 @@ def test_top_scorers_count_goals_and_assists(client, make_match, make_player, se
 
     assert [(s["player_name"], s["goals"]) for s in scorers] == [("Bukayo Saka", 2)]
     assert scorers[0]["assists"] == 0
+
+
+def test_table_defaults_to_latest_season(client, make_match, make_season, setup):
+    league_id = setup["league"]["id"]
+    ars, liv = setup["arsenal"]["id"], setup["liverpool"]["id"]
+    last_season = make_season(league_id, name="2025/26", start_date="2025-08-01", end_date="2026-05-31")
+    make_season(league_id)  # 2026/27: the current season, no matches yet
+    old = make_match(league_id, ars, liv, season_id=last_season["id"])
+    client.patch(f"/matches/{old['id']}", json={"status": "finished", "home_score": 5})
+
+    current_table = client.get(f"/leagues/{league_id}/standings").json()
+    old_table = client.get(f"/leagues/{league_id}/standings", params={"season_id": last_season["id"]}).json()
+
+    assert all(row["played"] == 0 for row in current_table)
+    assert old_table[0]["team_name"] == "Arsenal" and old_table[0]["points"] == 3
+
+
+def test_season_from_another_league_is_rejected(client, make_league, make_season, setup):
+    la_liga = make_league(name="La Liga", country="Spain")
+    la_liga_season = make_season(la_liga["id"])
+
+    response = client.get(f"/leagues/{setup['league']['id']}/standings", params={"season_id": la_liga_season["id"]})
+
+    assert response.status_code == 404

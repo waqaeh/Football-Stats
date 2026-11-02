@@ -75,11 +75,26 @@ def make_player(client):
 
 
 @pytest.fixture
-def make_match(client):
-    def _make(league_id, home_team_id, away_team_id, status=None):
+def make_season(client):
+    def _make(league_id, name="2026/27", start_date="2026-08-01", end_date="2027-05-31"):
+        response = client.post(
+            f"/leagues/{league_id}/seasons",
+            json={"name": name, "start_date": start_date, "end_date": end_date},
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+    return _make
+
+
+@pytest.fixture
+def make_match(client, make_season):
+    def _make(league_id, home_team_id, away_team_id, status=None, season_id=None):
+        if season_id is None:  # use the league's latest season, creating one if needed
+            seasons = client.get(f"/leagues/{league_id}/seasons").json()
+            season_id = seasons[-1]["id"] if seasons else make_season(league_id)["id"]
         response = client.post(
             "/matches",
-            json={"league_id": league_id, "home_team_id": home_team_id,
+            json={"league_id": league_id, "season_id": season_id, "home_team_id": home_team_id,
                   "away_team_id": away_team_id, "kickoff": "2026-11-01T15:00:00Z"},
         )
         assert response.status_code == 201, response.text

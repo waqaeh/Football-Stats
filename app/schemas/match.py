@@ -7,6 +7,7 @@ from app.models.match import MatchStatus
 
 class MatchCreate(BaseModel):
     league_id: int
+    season_id: int
     home_team_id: int
     away_team_id: int
     kickoff: datetime
@@ -29,6 +30,7 @@ class MatchRead(BaseModel):
 
     id: int
     league_id: int
+    season_id: int
     home_team_id: int
     away_team_id: int
     kickoff: datetime

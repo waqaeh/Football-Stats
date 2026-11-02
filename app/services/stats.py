@@ -4,14 +4,14 @@ from sqlalchemy.orm import Session
 from app.models import EventType, Match, MatchEvent, Player, Team
 
 
-def top_scorers(league_id: int, db: Session, limit: int) -> list[dict]:
+def top_scorers(season_id: int | None, db: Session, limit: int) -> list[dict]:
     goals = func.count(MatchEvent.id).label("goals")
     rows = db.execute(
         select(Player.id, Player.name, Team.id, Team.name, goals)
         .join(MatchEvent, MatchEvent.player_id == Player.id)
         .join(Match, Match.id == MatchEvent.match_id)
         .join(Team, Team.id == MatchEvent.team_id)
-        .where(Match.league_id == league_id, MatchEvent.type == EventType.GOAL)
+        .where(Match.season_id == season_id, MatchEvent.type == EventType.GOAL)
         .group_by(Player.id, Player.name, Team.id, Team.name)
         .order_by(goals.desc(), Player.name)
         .limit(limit)
@@ -22,7 +22,7 @@ def top_scorers(league_id: int, db: Session, limit: int) -> list[dict]:
             select(MatchEvent.related_player_id, func.count(MatchEvent.id))
             .join(Match, Match.id == MatchEvent.match_id)
             .where(
-                Match.league_id == league_id,
+                Match.season_id == season_id,
                 MatchEvent.type == EventType.GOAL,
                 MatchEvent.related_player_id.is_not(None),
             )

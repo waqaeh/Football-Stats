@@ -83,3 +83,15 @@ def test_bulk_create_is_all_or_nothing(client, make_league, make_team):
 
     assert response.status_code == 404
     assert client.get("/players").json() == []
+
+
+def test_shirt_number_is_optional(client, make_league, make_team):
+    league = make_league()
+    team = make_team(league["id"])
+    player = valid_player(team["id"])
+    del player["shirt_number"]
+
+    response = client.post("/players", json=player)
+
+    assert response.status_code == 201
+    assert response.json()["shirt_number"] is None

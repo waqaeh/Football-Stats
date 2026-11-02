@@ -3,7 +3,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import League, Match, MatchStatus, Team
+from app.models import League, Match, MatchStatus, Season, Team
 from app.schemas.match import MatchCreate, MatchRead, MatchUpdate
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -13,6 +13,9 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 def create_match(match_in: MatchCreate, db: Session = Depends(get_db)):
     if db.get(League, match_in.league_id) is None:
         raise HTTPException(status_code=404, detail="League not found")
+    season = db.get(Season, match_in.season_id)
+    if season is None or season.league_id != match_in.league_id:
+        raise HTTPException(status_code=404, detail="Season not found in this league")
     if db.get(Team, match_in.home_team_id) is None:
         raise HTTPException(status_code=404, detail="Home team not found")
     if db.get(Team, match_in.away_team_id) is None:
@@ -27,6 +30,7 @@ def create_match(match_in: MatchCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=list[MatchRead])
 def list_matches(
     league_id: int | None = None,
+    season_id: int | None = None,
     team_id: int | None = None,
     status: MatchStatus | None = None,
     db: Session = Depends(get_db),
@@ -34,6 +38,8 @@ def list_matches(
     query = select(Match).order_by(Match.kickoff)
     if league_id is not None:
         query = query.where(Match.league_id == league_id)
+    if season_id is not None:
+        query = query.where(Match.season_id == season_id)
     if team_id is not None:
         query = query.where(or_(Match.home_team_id == team_id, Match.away_team_id == team_id))
     if status is not None:
