@@ -7,6 +7,8 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 
+settings.bcrypt_rounds = 4  # the minimum: keeps tests fast, never use this in production
+
 
 @pytest.fixture(scope="session")
 def engine():
@@ -113,3 +115,14 @@ def setup(make_league, make_team):
     arsenal = make_team(league["id"])
     liverpool = make_team(league["id"], name="Liverpool", short_name="LIV")
     return {"league": league, "arsenal": arsenal, "liverpool": liverpool}
+
+
+@pytest.fixture
+def login(client):
+    """Register a user and return the headers that authenticate as them: client.get(..., headers=login("ameer"))."""
+    def _login(username="ameer", password="correct-horse"):
+        client.post("/auth/register", json={"username": username, "password": password})
+        response = client.post("/auth/login", data={"username": username, "password": password})
+        assert response.status_code == 200, response.text
+        return {"Authorization": f"Bearer {response.json()['access_token']}"}
+    return _login
